@@ -1,6 +1,45 @@
 -- Ejecutar después de 03-modelo-datos.sql en el SQL Editor de Supabase.
 -- Estas políticas son la autoridad real de autorización; la UI solo mejora UX.
 
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, email)
+  values (
+    new.id,
+    coalesce(
+      nullif(new.raw_user_meta_data->>'full_name', ''),
+      split_part(new.email, '@', 1)
+    ),
+    new.email
+  );
+  return new;
+end;
+$$;
+
+revoke all on function public.handle_new_user() from public;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+insert into public.profiles (id, full_name, email)
+select
+  id,
+  coalesce(
+    nullif(raw_user_meta_data->>'full_name', ''),
+    split_part(email, '@', 1)
+  ),
+  email
+from auth.users
+where email is not null
+on conflict (id) do nothing;
+
 create or replace function public.current_app_role()
 returns public.app_role
 language sql
@@ -27,6 +66,34 @@ alter table public.financial_transactions enable row level security;
 alter table public.announcements enable row level security;
 alter table public.church_settings enable row level security;
 alter table public.audit_log enable row level security;
+
+drop policy if exists profiles_self_read on public.profiles;
+drop policy if exists profiles_admin_update on public.profiles;
+drop policy if exists roles_admin_manage on public.user_roles;
+drop policy if exists roles_self_read on public.user_roles;
+drop policy if exists members_read on public.members;
+drop policy if exists members_manage on public.members;
+drop policy if exists events_read on public.events;
+drop policy if exists events_manage on public.events;
+drop policy if exists event_responsibles_read on public.event_responsibles;
+drop policy if exists event_responsibles_manage on public.event_responsibles;
+drop policy if exists attendance_read on public.attendance;
+drop policy if exists attendance_manage on public.attendance;
+drop policy if exists ministries_read on public.ministries;
+drop policy if exists ministries_manage on public.ministries;
+drop policy if exists ministry_members_read on public.ministry_members;
+drop policy if exists ministry_members_manage on public.ministry_members;
+drop policy if exists ministry_activities_read on public.ministry_activities;
+drop policy if exists ministry_activities_manage on public.ministry_activities;
+drop policy if exists finance_authorized_read on public.financial_transactions;
+drop policy if exists finance_authorized_insert on public.financial_transactions;
+drop policy if exists finance_authorized_update on public.financial_transactions;
+drop policy if exists announcements_read on public.announcements;
+drop policy if exists announcements_manage on public.announcements;
+drop policy if exists settings_read on public.church_settings;
+drop policy if exists settings_admin_manage on public.church_settings;
+drop policy if exists audit_read_admin on public.audit_log;
+drop policy if exists audit_insert_authenticated on public.audit_log;
 
 create policy profiles_self_read on public.profiles
   for select to authenticated
@@ -214,6 +281,11 @@ create trigger audit_church_settings after insert or update or delete on public.
 insert into storage.buckets (id, name, public)
 values ('church-assets', 'church-assets', true)
 on conflict (id) do update set public = excluded.public;
+
+drop policy if exists church_assets_read on storage.objects;
+drop policy if exists church_assets_admin_insert on storage.objects;
+drop policy if exists church_assets_admin_update on storage.objects;
+drop policy if exists church_assets_admin_delete on storage.objects;
 
 create policy church_assets_read on storage.objects
   for select to public
