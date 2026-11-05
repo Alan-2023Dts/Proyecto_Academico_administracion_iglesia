@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'theme.dart';
@@ -17,6 +18,13 @@ class IglesiaApp extends StatelessWidget {
       title: 'Iglesia',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      locale: const Locale('es'),
+      supportedLocales: const [Locale('es'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: AuthGate(config: config),
     );
   }
