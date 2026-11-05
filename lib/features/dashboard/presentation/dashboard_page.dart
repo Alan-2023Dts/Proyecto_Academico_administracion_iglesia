@@ -147,7 +147,15 @@ class _OverviewTabState extends State<_OverviewTab> {
   }
 
   void _refresh() {
-    setState(() => _metricsFuture = _repository.load());
+    final future = _repository.load();
+    setState(() {
+      _metricsFuture = future;
+    });
+  }
+
+  Future<void> _refreshAndWait() async {
+    _refresh();
+    await _metricsFuture;
   }
 
   @override
@@ -166,7 +174,7 @@ class _OverviewTabState extends State<_OverviewTab> {
         }
         final metrics = snapshot.data!;
         return RefreshIndicator(
-          onRefresh: () async => _refresh(),
+          onRefresh: _refreshAndWait,
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -181,35 +189,50 @@ class _OverviewTabState extends State<_OverviewTab> {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 24),
-              GridView.count(
-                crossAxisCount: MediaQuery.sizeOf(context).width > 600 ? 4 : 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.35,
-                children: [
-                  _KpiCard(
-                    label: 'Miembros activos',
-                    value: '${metrics.activeMembers}',
-                    icon: Icons.groups_outlined,
-                  ),
-                  _KpiCard(
-                    label: 'Próximos eventos',
-                    value: '${metrics.upcomingEvents}',
-                    icon: Icons.event_available_outlined,
-                  ),
-                  _KpiCard(
-                    label: 'Asistencias del mes',
-                    value: '${metrics.attendanceThisMonth}',
-                    icon: Icons.fact_check_outlined,
-                  ),
-                  _KpiCard(
-                    label: 'Ministerios activos',
-                    value: '${metrics.activeMinistries}',
-                    icon: Icons.volunteer_activism_outlined,
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 560 ? 4 : 2;
+                  final cardWidth =
+                      (constraints.maxWidth - (columns - 1) * 12) / columns;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: cardWidth,
+                        child: _KpiCard(
+                          label: 'Miembros activos',
+                          value: '${metrics.activeMembers}',
+                          icon: Icons.groups_outlined,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _KpiCard(
+                          label: 'Próximos eventos',
+                          value: '${metrics.upcomingEvents}',
+                          icon: Icons.event_available_outlined,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _KpiCard(
+                          label: 'Asistencias del mes',
+                          value: '${metrics.attendanceThisMonth}',
+                          icon: Icons.fact_check_outlined,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _KpiCard(
+                          label: 'Ministerios activos',
+                          value: '${metrics.activeMinistries}',
+                          icon: Icons.volunteer_activism_outlined,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               if (metrics.canViewFinance) ...[
                 const SizedBox(height: 12),
@@ -366,16 +389,18 @@ class _KpiCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(height: 8),
             Text(
               value,
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(label),
           ],
         ),
       ),
