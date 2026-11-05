@@ -37,7 +37,18 @@ Los requisitos y el diseño de todos los módulos están documentados en
 
 La autorización de servidor y el bucket del logotipo se configuran con
 [`06-rls-y-storage.sql`](./docs/06-rls-y-storage.sql). Debe ejecutarse después
-del esquema base y validarse con usuarios de roles distintos.
+del esquema base. Este script también crea automáticamente el perfil en
+`public.profiles` al registrar un usuario en Supabase Auth. Después del primer
+registro, asígnale manualmente un rol en `public.user_roles`; por ejemplo:
+
+```sql
+insert into public.user_roles (user_id, role)
+select id, 'administrador'::public.app_role
+from auth.users
+where email = 'admin@tu-dominio.com';
+```
+
+Valida la configuración con usuarios de roles distintos.
 
 ## Configuración de Supabase
 
